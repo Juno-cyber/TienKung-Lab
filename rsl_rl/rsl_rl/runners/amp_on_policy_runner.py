@@ -225,6 +225,12 @@ class AmpOnPolicyRunner:
             irewbuffer = deque(maxlen=100)
             cur_ereward_sum = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
             cur_ireward_sum = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
+        
+        # create buffers for logging task and style rewards separately
+        task_rewbuffer = deque(maxlen=100)
+        style_rewbuffer = deque(maxlen=100)
+        cur_task_reward_sum = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
+        cur_style_reward_sum = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
 
         # Ensure all parameters are in-synced
         if self.is_distributed:
@@ -268,9 +274,10 @@ class AmpOnPolicyRunner:
                     terminal_amp_states = self.env.get_amp_obs_for_expert_trans()[reset_env_ids]
                     next_amp_obs_with_term[reset_env_ids] = terminal_amp_states
 
-                    rewards = self.alg.discriminator.predict_amp_reward(
+                    # Get AMP reward from discriminator and separate task/style rewards for logging
+                    rewards, _, style_rewards, task_rewards = self.alg.discriminator.predict_amp_reward(
                         amp_obs, next_amp_obs_with_term, rewards, normalizer=self.alg.amp_normalizer
-                    )[0]
+                    )
                     amp_obs = torch.clone(next_amp_obs)
                     self.alg.process_env_step(rewards, dones, infos, next_amp_obs_with_term)
 
@@ -283,13 +290,18 @@ class AmpOnPolicyRunner:
                             ep_infos.append(infos["episode"])
                         elif "log" in infos:
                             ep_infos.append(infos["log"])
-                        # Update rewards
+                        # Update total rewards (including RND if enabled)
                         if self.alg.rnd:
                             cur_ereward_sum += rewards
                             cur_ireward_sum += intrinsic_rewards  # type: ignore
                             cur_reward_sum += rewards + intrinsic_rewards
                         else:
                             cur_reward_sum += rewards
+                        
+                        # Update task and style rewards for logging
+                        cur_task_reward_sum += task_rewards
+                        cur_style_reward_sum += style_rewards
+                        
                         # Update episode length
                         cur_episode_length += 1
                         # Clear data for completed episodes
@@ -305,6 +317,11 @@ class AmpOnPolicyRunner:
                             irewbuffer.extend(cur_ireward_sum[new_ids][:, 0].cpu().numpy().tolist())
                             cur_ereward_sum[new_ids] = 0
                             cur_ireward_sum[new_ids] = 0
+                        # -- task and style rewards
+                        task_rewbuffer.extend(cur_task_reward_sum[new_ids][:, 0].cpu().numpy().tolist())
+                        style_rewbuffer.extend(cur_style_reward_sum[new_ids][:, 0].cpu().numpy().tolist())
+                        cur_task_reward_sum[new_ids] = 0
+                        cur_style_reward_sum[new_ids] = 0
 
                 stop = time.time()
                 collection_time = stop - start
@@ -405,6 +422,14 @@ class AmpOnPolicyRunner:
                 self.writer.add_scalar(
                     "Train/mean_episode_length/time", statistics.mean(locs["lenbuffer"]), self.tot_time
                 )
+            
+            # Log task and style rewards separately for debugging
+            if len(locs["task_rewbuffer"]) > 0 and len(locs["style_rewbuffer"]) > 0:
+                self.writer.add_scalar("Reward/mean_task_reward", statistics.mean(locs["task_rewbuffer"]), locs["it"])
+                self.writer.add_scalar("Reward/mean_style_reward", statistics.mean(locs["style_rewbuffer"]), locs["it"])
+                # Compute and log the ratio (add small epsilon to avoid division by zero)
+                task_style_ratio = statistics.mean(locs["task_rewbuffer"]) / (statistics.mean(locs["style_rewbuffer"]) + 1e-6)
+                self.writer.add_scalar("Reward/task_style_ratio", task_style_ratio, locs["it"])
 
         str = f" \033[1m Learning iteration {locs['it']}/{locs['tot_iter']} \033[0m "
 
@@ -426,6 +451,13 @@ class AmpOnPolicyRunner:
                     f"""{'Mean intrinsic reward:':>{pad}} {statistics.mean(locs['irewbuffer']):.2f}\n"""
                 )
             log_string += f"""{'Mean reward:':>{pad}} {statistics.mean(locs['rewbuffer']):.2f}\n"""
+            # -- Task and Style rewards (for AMP debugging)
+            if len(locs.get("task_rewbuffer", [])) > 0 and len(locs.get("style_rewbuffer", [])) > 0:
+                log_string += (
+                    f"""{'Mean task reward:':>{pad}} {statistics.mean(locs['task_rewbuffer']):.4f}\n"""
+                    f"""{'Mean style reward:':>{pad}} {statistics.mean(locs['style_rewbuffer']):.4f}\n"""
+                    f"""{'Task/Style ratio:':>{pad}} {task_style_ratio:.4f}\n"""
+                )
             # -- episode info
             log_string += f"""{'Mean episode length:':>{pad}} {statistics.mean(locs['lenbuffer']):.2f}\n"""
         else:
