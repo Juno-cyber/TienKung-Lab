@@ -57,7 +57,7 @@ class GaitCfg:
     gait_air_ratio_r: float = 0.38
     gait_phase_offset_l: float = 0.38
     gait_phase_offset_r: float = 0.88
-    gait_cycle: float = 0.85
+    gait_cycle: float = 1.2
 
 
 @configclass
@@ -374,21 +374,21 @@ class Kuavo5WalkAgentCfg(RslRlOnPolicyRunnerCfg):
         # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/原地踏步_s52.txt",
         # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/原地转圈_中速_逆时针_Skeleton_001_s52.txt",
         # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/原地转圈_中速_顺时针_000_Skeleton_001_s52.txt",
-        # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/原地转圈_低速_逆时针_Skeleton_001_s52.txt",
-        # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/原地转圈_低速_顺时针_Skeleton_001_s52.txt",
+        "legged_lab/envs/kuavo5/datasets/motion_amp_expert/原地转圈_低速_逆时针_Skeleton_001_s52.txt",
+        "legged_lab/envs/kuavo5/datasets/motion_amp_expert/原地转圈_低速_顺时针_Skeleton_001_s52.txt",
         # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/后退_中速_小摆手_000_Skeleton_s52.txt",
         # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/后退_低速_小摆手_000_Skeleton_s52.txt",
-        # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/后退_低速_小摆手_Skeleton_s52.txt",
+        "legged_lab/envs/kuavo5/datasets/motion_amp_expert/后退_低速_小摆手_Skeleton_s52.txt",
         # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/圆_2_s52.txt",
-        # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/弧线_小右_Skeleton_s52.txt",
-        # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/弧线_小左_Skeleton_s52.txt",
+        "legged_lab/envs/kuavo5/datasets/motion_amp_expert/弧线_小右_Skeleton_s52.txt",
+        "legged_lab/envs/kuavo5/datasets/motion_amp_expert/弧线_小左_Skeleton_s52.txt",
         # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/直行_中速_小摆手_1_s52.txt",
         # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/直行_中速_小摆手_2_s52.txt",
         # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/直行_中速_小摆手_3_s52.txt",
-        # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/直行_低速_小摆手_1_s52.txt",
-        # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/直行_低速_小摆手_2_s52.txt",
-        # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/静止站立_LiuKe_Skeleton_retargeted.txt",
-        "legged_lab/envs/kuavo5/datasets/motion_amp_expert/kuavo5_walk.txt",
+        "legged_lab/envs/kuavo5/datasets/motion_amp_expert/直行_低速_小摆手_1_s52.txt",
+        "legged_lab/envs/kuavo5/datasets/motion_amp_expert/直行_低速_小摆手_2_s52.txt",
+        "legged_lab/envs/kuavo5/datasets/motion_amp_expert/静止站立_LiuKe_Skeleton_retargeted.txt",
+        # "legged_lab/envs/kuavo5/datasets/motion_amp_expert/kuavo5_walk.txt",
     ]
     amp_num_preload_transitions = 200000
     amp_task_reward_lerp = 0.7
