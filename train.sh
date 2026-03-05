@@ -1,0 +1,1 @@
+python legged_lab/scripts/train.py --task kuavo5_walk --logger wandb --num_envs 4096 --headless --rl-device cuda:0

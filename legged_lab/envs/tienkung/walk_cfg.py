@@ -62,8 +62,8 @@ class GaitCfg:
 
 @configclass
 class LiteRewardCfg:
-    track_lin_vel_xy_exp = RewTerm(func=mdp.track_lin_vel_xy_yaw_frame_exp, weight=1.0, params={"std": 0.5})
-    track_ang_vel_z_exp = RewTerm(func=mdp.track_ang_vel_z_world_exp, weight=1.0, params={"std": 0.5})
+    track_lin_vel_xy_exp = RewTerm(func=mdp.track_lin_vel_xy_yaw_frame_exp, weight=2.0, params={"std": 0.5})
+    track_ang_vel_z_exp = RewTerm(func=mdp.track_ang_vel_z_world_exp, weight=2.0, params={"std": 0.5})
     lin_vel_z_l2 = RewTerm(func=mdp.lin_vel_z_l2, weight=-1.0)
     ang_vel_xy_l2 = RewTerm(func=mdp.ang_vel_xy_l2, weight=-0.05)
     energy = RewTerm(func=mdp.energy, weight=-1e-3)
@@ -334,6 +334,6 @@ class TienKungWalkAgentCfg(RslRlOnPolicyRunnerCfg):
     amp_reward_coef = 0.3
     amp_motion_files = ["legged_lab/envs/tienkung/datasets/motion_amp_expert/walk.txt"]
     amp_num_preload_transitions = 200000
-    amp_task_reward_lerp = 0.7
+    amp_task_reward_lerp = 0.9
     amp_discr_hidden_dims = [1024, 512, 256]
     min_normalized_std = [0.05] * 20

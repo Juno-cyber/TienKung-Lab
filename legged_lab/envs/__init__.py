@@ -32,6 +32,9 @@ from legged_lab.envs.tienkung.walk_with_sensor_cfg import (
     TienKungWalkWithSensorAgentCfg,
     TienKungWalkWithSensorFlatEnvCfg,
 )
+from legged_lab.envs.kuavo5.kuavo5_env import Kuavo5Env
+from legged_lab.envs.kuavo5.run_cfg import Kuavo5RunAgentCfg, Kuavo5RunFlatEnvCfg
+from legged_lab.envs.kuavo5.walk_cfg import Kuavo5WalkAgentCfg, Kuavo5WalkFlatEnvCfg
 from legged_lab.utils.task_registry import task_registry
 
 task_registry.register("walk", TienKungEnv, TienKungWalkFlatEnvCfg(), TienKungWalkAgentCfg())
@@ -42,3 +45,5 @@ task_registry.register(
 task_registry.register(
     "run_with_sensor", TienKungEnv, TienKungRunWithSensorFlatEnvCfg(), TienKungRunWithSensorAgentCfg()
 )
+task_registry.register("kuavo5_walk", Kuavo5Env, Kuavo5WalkFlatEnvCfg(), Kuavo5WalkAgentCfg())
+task_registry.register("kuavo5_run", Kuavo5Env, Kuavo5RunFlatEnvCfg(), Kuavo5RunAgentCfg())

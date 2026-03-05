@@ -33,6 +33,7 @@ parser.add_argument("--num_envs", type=int, default=None, help="Number of enviro
 parser.add_argument("--seed", type=int, default=None, help="Seed used for the environment")
 parser.add_argument("--save_path", type=str, default=None, help="Path to save the txt file")
 parser.add_argument("--fps", type=float, default=30.0, help="Target fps")
+parser.add_argument("--vis_ee", action="store_true", help="Visualize end-effector positions (hands and feet)")
 
 # append RSL-RL cli arguments
 cli_args.add_rsl_rl_args(parser)
@@ -62,6 +63,10 @@ def play_amp_animation():
     env_cfg.scene.terrain_generator = None
     env_cfg.scene.terrain_type = "plane"
     env_cfg.commands.debug_vis = False
+    
+    # Enable end-effector visualization if requested
+    if args_cli.vis_ee:
+        print("🎯 End-effector visualization enabled")
 
     if args_cli.num_envs is not None:
         env_cfg.scene.num_envs = args_cli.num_envs

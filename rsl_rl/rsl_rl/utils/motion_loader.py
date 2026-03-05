@@ -24,20 +24,23 @@ import torch
 
 
 class AMPLoader:
-    JOINT_POS_SIZE = 20
+    # Kuavo5 has 27 DOFs: 6 left leg + 6 right leg + 1 waist + 7 left arm + 7 right arm
+    JOINT_POS_SIZE = 27  # Including waist joint
 
-    JOINT_VEL_SIZE = 20
+    JOINT_VEL_SIZE = 27  # Including waist joint
 
-    END_EFFECTOR_POS_SIZE = 12
+    END_EFFECTOR_POS_SIZE = 12  # 4 end-effectors (2 hands + 2 feet) * 3D positions
 
-    JOINT_POSE_START_IDX = 0
-    JOINT_POSE_END_IDX = JOINT_POSE_START_IDX + JOINT_POS_SIZE
+    # AMP format used in environment: [joint_pos(27), joint_vel(27), end_pos(12)] = 66 dimensions
+    # Note: Environment observations include all 27 joints (with waist) + 12 end-effector positions
+    JOINT_POSE_START_IDX = 0  # Environment observations start directly with joint positions
+    JOINT_POSE_END_IDX = JOINT_POSE_START_IDX + JOINT_POS_SIZE  # = 0 + 27 = 27
 
-    JOINT_VEL_START_IDX = JOINT_POSE_END_IDX
-    JOINT_VEL_END_IDX = JOINT_VEL_START_IDX + JOINT_VEL_SIZE
+    JOINT_VEL_START_IDX = JOINT_POSE_END_IDX  # = 27
+    JOINT_VEL_END_IDX = JOINT_VEL_START_IDX + JOINT_VEL_SIZE  # = 27 + 27 = 54
 
-    END_POS_START_IDX = JOINT_VEL_END_IDX
-    END_POS_END_IDX = END_POS_START_IDX + END_EFFECTOR_POS_SIZE
+    END_POS_START_IDX = JOINT_VEL_END_IDX  # = 54
+    END_POS_END_IDX = END_POS_START_IDX + END_EFFECTOR_POS_SIZE  # = 54 + 12 = 66
 
     def __init__(
         self,

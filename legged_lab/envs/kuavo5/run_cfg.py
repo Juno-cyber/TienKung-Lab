@@ -31,7 +31,7 @@ from isaaclab_rl.rsl_rl import (  # noqa:F401
 )
 
 import legged_lab.mdp as mdp
-from legged_lab.assets.tienkung2_lite import TIENKUNG2LITE_CFG
+from legged_lab.assets.biped_s54 import BIPED_S54_CFG
 from legged_lab.envs.base.base_config import (
     ActionDelayCfg,
     BaseSceneCfg,
@@ -74,13 +74,13 @@ class LiteRewardCfg:
         weight=-1.0,
         params={
             "sensor_cfg": SceneEntityCfg(
-                "contact_sensor", body_names=["knee_pitch.*", "shoulder_roll.*", "elbow_pitch.*", "pelvis"]
+                "contact_sensor", body_names=["leg_l4_link", "leg_r4_link", "zarm_l2_link", "zarm_r2_link", "zarm_l4_link", "zarm_r4_link", "dummy_link"]
             ),
             "threshold": 1.0,
         },
     )
     body_orientation_l2 = RewTerm(
-        func=mdp.body_orientation_l2, params={"asset_cfg": SceneEntityCfg("robot", body_names="pelvis")}, weight=-2.0
+        func=mdp.body_orientation_l2, params={"asset_cfg": SceneEntityCfg("robot", body_names=["dummy_link"])}, weight=-2.0
     )
     flat_orientation_l2 = RewTerm(func=mdp.flat_orientation_l2, weight=-1.0)
     termination_penalty = RewTerm(func=mdp.is_terminated, weight=-200.0)
@@ -88,15 +88,15 @@ class LiteRewardCfg:
         func=mdp.feet_slide,
         weight=-0.25,
         params={
-            "sensor_cfg": SceneEntityCfg("contact_sensor", body_names="ankle_roll.*"),
-            "asset_cfg": SceneEntityCfg("robot", body_names="ankle_roll.*"),
+            "sensor_cfg": SceneEntityCfg("contact_sensor", body_names=["leg_l6_link", "leg_r6_link"]),
+            "asset_cfg": SceneEntityCfg("robot", body_names=["leg_l6_link", "leg_r6_link"]),
         },
     )
     feet_force = RewTerm(
         func=mdp.body_force,
         weight=-3e-3,
         params={
-            "sensor_cfg": SceneEntityCfg("contact_sensor", body_names="ankle_roll.*"),
+            "sensor_cfg": SceneEntityCfg("contact_sensor", body_names=["leg_l6_link", "leg_r6_link"]),
             "threshold": 500,
             "max_reward": 400,
         },
@@ -104,12 +104,12 @@ class LiteRewardCfg:
     feet_too_near = RewTerm(
         func=mdp.feet_too_near_humanoid,
         weight=-2.0,
-        params={"asset_cfg": SceneEntityCfg("robot", body_names=["ankle_roll.*"]), "threshold": 0.2},
+        params={"asset_cfg": SceneEntityCfg("robot", body_names=["leg_l6_link", "leg_r6_link"]), "threshold": 0.2},
     )
     feet_stumble = RewTerm(
         func=mdp.feet_stumble,
         weight=-2.0,
-        params={"sensor_cfg": SceneEntityCfg("contact_sensor", body_names=["ankle_roll.*"])},
+        params={"sensor_cfg": SceneEntityCfg("contact_sensor", body_names=["leg_l6_link", "leg_r6_link"])},
     )
     dof_pos_limits = RewTerm(func=mdp.joint_pos_limits, weight=-2.0)
     joint_deviation_hip = RewTerm(
@@ -119,10 +119,12 @@ class LiteRewardCfg:
             "asset_cfg": SceneEntityCfg(
                 "robot",
                 joint_names=[
-                    "hip_yaw_.*_joint",
-                    "hip_roll_.*_joint",
-                    "shoulder_pitch_.*_joint",
-                    "elbow_pitch_.*_joint",
+                    "leg_l1_joint",
+                    "leg_r1_joint",
+                    "zarm_l1_joint",
+                    "zarm_r1_joint",
+                    "zarm_l4_joint",
+                    "zarm_r4_joint",
                 ],
             )
         },
@@ -130,7 +132,7 @@ class LiteRewardCfg:
     joint_deviation_arms = RewTerm(
         func=mdp.joint_deviation_l1,
         weight=-0.2,
-        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["shoulder_roll_.*_joint", "shoulder_yaw_.*_joint"])},
+        params={"asset_cfg": SceneEntityCfg("robot", joint_names=["zarm_l2_joint", "zarm_r2_joint", "zarm_l3_joint", "zarm_r3_joint"])},
     )
     joint_deviation_legs = RewTerm(
         func=mdp.joint_deviation_l1,
@@ -139,10 +141,14 @@ class LiteRewardCfg:
             "asset_cfg": SceneEntityCfg(
                 "robot",
                 joint_names=[
-                    "hip_pitch_.*_joint",
-                    "knee_pitch_.*_joint",
-                    "ankle_pitch_.*_joint",
-                    "ankle_roll_.*_joint",
+                    "leg_l3_joint",
+                    "leg_r3_joint",
+                    "leg_l4_joint",
+                    "leg_r4_joint",
+                    "leg_l5_joint",
+                    "leg_r5_joint",
+                    "leg_l6_joint",
+                    "leg_r6_joint",
                 ],
             )
         },
@@ -160,14 +166,14 @@ class LiteRewardCfg:
 
 
 @configclass
-class TienKungRunFlatEnvCfg:
-    amp_motion_files_display = ["legged_lab/envs/tienkung/datasets/motion_visualization/run.txt"]
+class Kuavo5RunFlatEnvCfg:
+    amp_motion_files_display = ["legged_lab/envs/kuavo5/datasets/motion_visualization/静止站立_LiuKe_Skeleton_retargeted.txt"]
     device: str = "cuda:0"
     scene: BaseSceneCfg = BaseSceneCfg(
         max_episode_length_s=20.0,
         num_envs=4096,
         env_spacing=2.5,
-        robot=TIENKUNG2LITE_CFG,
+        robot=BIPED_S54_CFG,
         terrain_type="generator",
         terrain_generator=GRAVEL_TERRAINS_CFG,
         # terrain_type="plane",
@@ -175,7 +181,7 @@ class TienKungRunFlatEnvCfg:
         max_init_terrain_level=5,
         height_scanner=HeightScannerCfg(
             enable_height_scan=False,
-            prim_body_name="pelvis",
+            prim_body_name="dummy_link",
             resolution=0.1,
             size=(1.6, 1.0),
             debug_vis=False,
@@ -186,8 +192,8 @@ class TienKungRunFlatEnvCfg:
         actor_obs_history_length=10,
         critic_obs_history_length=10,
         action_scale=0.25,
-        terminate_contacts_body_names=["knee_pitch.*", "shoulder_roll.*", "elbow_pitch.*", "pelvis"],
-        feet_body_names=["ankle_roll.*"],
+        terminate_contacts_body_names=["leg_l2_link", "leg_r2_link", "leg_l3_link", "leg_r3_link", "zarm_l3_link", "zarm_r3_link", "zarm_l7_link", "zarm_r7_link", "dummy_link"],
+        feet_body_names=["leg_l6_link", "leg_r6_link"],
     )
     reward = LiteRewardCfg()
     gait = GaitCfg()
@@ -245,7 +251,7 @@ class TienKungRunFlatEnvCfg:
                 func=mdp.randomize_rigid_body_mass,
                 mode="startup",
                 params={
-                    "asset_cfg": SceneEntityCfg("robot", body_names="pelvis"),
+                    "asset_cfg": SceneEntityCfg("robot", body_names="dummy_link"),
                     "mass_distribution_params": (-5.0, 5.0),
                     "operation": "add",
                 },
@@ -286,7 +292,7 @@ class TienKungRunFlatEnvCfg:
 
 
 @configclass
-class TienKungRunAgentCfg(RslRlOnPolicyRunnerCfg):
+class Kuavo5RunAgentCfg(RslRlOnPolicyRunnerCfg):
     seed = 42
     device = "cuda:0"
     num_steps_per_env = 24
@@ -321,19 +327,22 @@ class TienKungRunAgentCfg(RslRlOnPolicyRunnerCfg):
     clip_actions = None
     save_interval = 100
     runner_class_name = "AmpOnPolicyRunner"
-    experiment_name = "run"
+    experiment_name = "kuavo5_run"
     run_name = ""
     logger = "tensorboard"
-    neptune_project = "run"
-    wandb_project = "run"
+    neptune_project = "kuavo5_run"
+    wandb_project = "kuavo5_run"
     resume = False
     load_run = ".*"
     load_checkpoint = "model_.*.pt"
 
     # amp parameter
     amp_reward_coef = 0.3
-    amp_motion_files = ["legged_lab/envs/tienkung/datasets/motion_amp_expert/run.txt"]
+    amp_motion_files = ["legged_lab/envs/kuavo5/datasets/motion_amp_expert/run.txt"]
     amp_num_preload_transitions = 200000
     amp_task_reward_lerp = 0.7
     amp_discr_hidden_dims = [1024, 512, 256]
-    min_normalized_std = [0.05] * 20
+    # min_normalized_std 的长度应该等于关节数量（不是观测值维度）
+    # 用于控制每个关节的归一化标准差最小值
+    # Kuavo5 有 27 个关节：左腿 6 + 右腿 6 + 腰部 1 + 左臂 7 + 右臂 7
+    min_normalized_std = [0.05] * 27  # 27 个关节

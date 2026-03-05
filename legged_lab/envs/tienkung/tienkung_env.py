@@ -24,6 +24,7 @@ from isaaclab.assets.articulation import Articulation
 from isaaclab.envs.mdp.commands import UniformVelocityCommand, UniformVelocityCommandCfg
 from isaaclab.managers import EventManager, RewardManager
 from isaaclab.managers.scene_entity_cfg import SceneEntityCfg
+from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.scene import InteractiveScene
 from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.sensors.camera import TiledCamera
@@ -124,6 +125,27 @@ class TienKungEnv(VecEnv):
             motion_files=self.cfg.amp_motion_files_display, device=self.device, time_between_frames=self.physics_dt
         )
         self.motion_len = self.amp_loader_display.trajectory_num_frames[0]
+        
+        # Initialize end-effector visualization markers
+        self._init_ee_visualizer()
+
+    def _init_ee_visualizer(self):
+        """Initialize visualization markers for end-effector positions (hands and feet)."""
+        # Create sphere markers for end-effectors
+        ee_visualizer_cfg = VisualizationMarkersCfg(
+            prim_path="/World/Visuals/EE_Visualization",
+            markers={
+                "sphere": sim_utils.SphereCfg(
+                    radius=0.05,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.0, 0.0),  # Red color by default
+                        opacity=0.8,
+                    ),
+                )
+            },
+        )
+        self.ee_visualizer = VisualizationMarkers(ee_visualizer_cfg)
+        self.ee_visualizer.set_visibility(True)
 
     def init_buffers(self):
         self.extras = {}
@@ -210,6 +232,24 @@ class TienKungEnv(VecEnv):
             name_keys=["ankle_pitch_l_joint", "ankle_pitch_r_joint", "ankle_roll_l_joint", "ankle_roll_r_joint"],
             preserve_order=True,
         )
+        
+        # DEBUG: Print joint mapping information
+        print(f"\n{'='*80}")
+        print(f"[DEBUG] Joint Mapping Verification for TienKung")
+        print(f"{'='*80}")
+        print(f"Total joints: {self.robot.num_joints}")
+        print(f"All joint names: {self.robot.joint_names}")
+        print(f"\nJoint group indices:")
+        print(f"  left_leg_ids ({len(self.left_leg_ids)}): {self.left_leg_ids}")
+        print(f"  right_leg_ids ({len(self.right_leg_ids)}): {self.right_leg_ids}")
+        print(f"  left_arm_ids ({len(self.left_arm_ids)}): {self.left_arm_ids}")
+        print(f"  right_arm_ids ({len(self.right_arm_ids)}): {self.right_arm_ids}")
+        print(f"\nExpected AMP data order (20 joints):")
+        print(f"  [6-11]: Left leg (6 joints)")
+        print(f"  [12-17]: Right leg (6 joints)")
+        print(f"  [18-21]: Left arm (4 joints)")
+        print(f"  [22-25]: Right arm (4 joints)")
+        print(f"{'='*80}\n")
 
         self.obs_scales = self.cfg.normalization.obs_scales
         self.add_noise = self.cfg.noise.add_noise
@@ -264,6 +304,26 @@ class TienKungEnv(VecEnv):
 
         dof_pos = torch.zeros((self.num_envs, self.robot.num_joints), device=device)
         dof_vel = torch.zeros((self.num_envs, self.robot.num_joints), device=device)
+
+        # DEBUG: Print joint position mapping for first few frames
+        if self.sim_step_counter < 10:
+            print(f"\n[DEBUG t={time:.3f}] AMP frame joint positions:")
+            print(f"  Left leg (indices 6-12):   {visual_motion_frame[6:12].cpu().numpy()}")
+            print(f"  Right leg (indices 12-18): {visual_motion_frame[12:18].cpu().numpy()}")
+            print(f"  Left arm (indices 18-22):  {visual_motion_frame[18:22].cpu().numpy()}")
+            print(f"  Right arm (indices 22-26): {visual_motion_frame[22:26].cpu().numpy()}")
+            
+            # Map to Isaac Lab joint indices and print
+            test_dof_pos = torch.zeros((self.num_envs, self.robot.num_joints), device=device)
+            test_dof_pos[:, self.left_leg_ids] = visual_motion_frame[6:12]
+            test_dof_pos[:, self.right_leg_ids] = visual_motion_frame[12:18]
+            test_dof_pos[:, self.left_arm_ids] = visual_motion_frame[18:22]
+            test_dof_pos[:, self.right_arm_ids] = visual_motion_frame[22:26]
+            
+            print(f"\n[DEBUG t={time:.3f}] Mapped to Isaac Lab joints:")
+            for i, joint_name in enumerate(self.robot.joint_names):
+                print(f"  [{i:2d}] {joint_name:30s}: {test_dof_pos[0, i]:7.4f}")
+            print()
 
         dof_pos[:, self.left_leg_ids] = visual_motion_frame[6:12]
         dof_pos[:, self.right_leg_ids] = visual_motion_frame[12:18]
@@ -324,6 +384,9 @@ class TienKungEnv(VecEnv):
         )
         left_foot_pos = quat_apply(quat_conjugate(self.robot.data.root_state_w[:, 3:7]), left_foot_pos)
         right_foot_pos = quat_apply(quat_conjugate(self.robot.data.root_state_w[:, 3:7]), right_foot_pos)
+        
+        # Update 3D visualization markers for end-effectors
+        self._update_ee_visualization(left_hand_pos, right_hand_pos, left_foot_pos, right_foot_pos, root_pos)
 
         self.left_leg_dof_pos =  dof_pos[:, self.left_leg_ids] 
         self.right_leg_dof_pos = dof_pos[:, self.right_leg_ids]
@@ -627,6 +690,35 @@ class TienKungEnv(VecEnv):
         except ModuleNotFoundError:
             pass
         return torch_utils.set_seed(seed)
+
+    def _update_ee_visualization(self, left_hand_pos, right_hand_pos, left_foot_pos, right_foot_pos, root_pos):
+        """
+        Update 3D visualization markers for end-effector positions.
+        
+        Args:
+            left_hand_pos: Left hand position in root frame [num_envs, 3]
+            right_hand_pos: Right hand position in root frame [num_envs, 3]
+            left_foot_pos: Left foot position in root frame [num_envs, 3]
+            right_foot_pos: Right foot position in root frame [num_envs, 3]
+            root_pos: Root position in world frame [num_envs, 3]
+        """
+        # Transform end-effector positions from root frame to world frame
+        left_hand_world = quat_apply(self.robot.data.root_state_w[:, 3:7], left_hand_pos) + root_pos
+        right_hand_world = quat_apply(self.robot.data.root_state_w[:, 3:7], right_hand_pos) + root_pos
+        left_foot_world = quat_apply(self.robot.data.root_state_w[:, 3:7], left_foot_pos) + root_pos
+        right_foot_world = quat_apply(self.robot.data.root_state_w[:, 3:7], right_foot_pos) + root_pos
+        
+        # Stack all end-effector positions [num_envs * 4, 3]
+        ee_positions = torch.cat([
+            left_hand_world,   # [num_envs, 3]
+            right_hand_world,  # [num_envs, 3]
+            left_foot_world,   # [num_envs, 3]
+            right_foot_world,  # [num_envs, 3]
+        ], dim=0)
+        
+        # Update visualization markers
+        if hasattr(self, "ee_visualizer"):
+            self.ee_visualizer.visualize(translations=ee_positions)
 
     def _calculate_gait_para(self) -> None:
         """

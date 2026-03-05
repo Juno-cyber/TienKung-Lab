@@ -73,7 +73,12 @@ def train():
     agent_cfg = update_rsl_rl_cfg(agent_cfg, args_cli)
     env_cfg.scene.seed = agent_cfg.seed
 
-    if args_cli.distributed:
+    # Set device if specified via command line (takes precedence over distributed mode)
+    if args_cli.rl_device is not None:
+        env_cfg.device = args_cli.rl_device
+        env_cfg.sim.device = args_cli.rl_device
+        agent_cfg.device = args_cli.rl_device
+    elif args_cli.distributed:
         env_cfg.sim.device = f"cuda:{app_launcher.local_rank}"
         agent_cfg.device = f"cuda:{app_launcher.local_rank}"
 

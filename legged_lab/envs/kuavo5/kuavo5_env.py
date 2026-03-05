@@ -24,6 +24,7 @@ from isaaclab.assets.articulation import Articulation
 from isaaclab.envs.mdp.commands import UniformVelocityCommand, UniformVelocityCommandCfg
 from isaaclab.managers import EventManager, RewardManager
 from isaaclab.managers.scene_entity_cfg import SceneEntityCfg
+from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.scene import InteractiveScene
 from isaaclab.sensors import ContactSensor, RayCaster
 from isaaclab.sensors.camera import TiledCamera
@@ -32,34 +33,20 @@ from isaaclab.utils.buffers import CircularBuffer, DelayBuffer
 from isaaclab.utils.math import quat_apply, quat_conjugate, quat_rotate
 from scipy.spatial.transform import Rotation
 
-from legged_lab.envs.tienkung.run_cfg import TienKungRunFlatEnvCfg
-from legged_lab.envs.tienkung.run_with_sensor_cfg import TienKungRunWithSensorFlatEnvCfg
-from legged_lab.envs.tienkung.walk_cfg import TienKungWalkFlatEnvCfg
-from legged_lab.envs.tienkung.walk_with_sensor_cfg import (
-    TienKungWalkWithSensorFlatEnvCfg,
-)
+from legged_lab.envs.kuavo5.run_cfg import Kuavo5RunFlatEnvCfg
+from legged_lab.envs.kuavo5.walk_cfg import Kuavo5WalkFlatEnvCfg
 from legged_lab.utils.env_utils.scene import SceneCfg
 from rsl_rl.env import VecEnv
 from rsl_rl.utils import AMPLoaderDisplay
 
 
-class TienKungEnv(VecEnv):
+class Kuavo5Env(VecEnv):
     def __init__(
         self,
-        cfg: (
-            TienKungRunFlatEnvCfg
-            | TienKungWalkFlatEnvCfg
-            | TienKungWalkWithSensorFlatEnvCfg
-            | TienKungRunWithSensorFlatEnvCfg
-        ),
+        cfg: Kuavo5RunFlatEnvCfg | Kuavo5WalkFlatEnvCfg,
         headless,
     ):
-        self.cfg: (
-            TienKungRunFlatEnvCfg
-            | TienKungWalkFlatEnvCfg
-            | TienKungWalkWithSensorFlatEnvCfg
-            | TienKungRunWithSensorFlatEnvCfg
-        )
+        self.cfg: Kuavo5RunFlatEnvCfg | Kuavo5WalkFlatEnvCfg
 
         self.cfg = cfg
         self.headless = headless
@@ -124,6 +111,27 @@ class TienKungEnv(VecEnv):
             motion_files=self.cfg.amp_motion_files_display, device=self.device, time_between_frames=self.physics_dt
         )
         self.motion_len = self.amp_loader_display.trajectory_num_frames[0]
+        
+        # Initialize end-effector visualization markers
+        self._init_ee_visualizer()
+
+    def _init_ee_visualizer(self):
+        """Initialize visualization markers for end-effector positions (hands and feet)."""
+        # Create sphere markers for end-effectors
+        ee_visualizer_cfg = VisualizationMarkersCfg(
+            prim_path="/World/Visuals/EE_Visualization",
+            markers={
+                "sphere": sim_utils.SphereCfg(
+                    radius=0.05,
+                    visual_material=sim_utils.PreviewSurfaceCfg(
+                        diffuse_color=(1.0, 0.0, 0.0),  # Red color by default
+                        opacity=0.8,
+                    ),
+                )
+            },
+        )
+        self.ee_visualizer = VisualizationMarkers(ee_visualizer_cfg)
+        self.ee_visualizer.set_visibility(True)
 
     def init_buffers(self):
         self.extras = {}
@@ -161,55 +169,85 @@ class TienKungEnv(VecEnv):
         self.feet_cfg.resolve(self.scene)
 
         self.feet_body_ids, _ = self.robot.find_bodies(
-            name_keys=["ankle_roll_l_link", "ankle_roll_r_link"], preserve_order=True
+            name_keys=["leg_l6_link", "leg_r6_link"], preserve_order=True
         )
         self.elbow_body_ids, _ = self.robot.find_bodies(
-            name_keys=["elbow_pitch_l_link", "elbow_pitch_r_link"], preserve_order=True
+            name_keys=["zarm_l4_link", "zarm_r4_link"], preserve_order=True
         )
         self.left_leg_ids, _ = self.robot.find_joints(
             name_keys=[
-                "hip_roll_l_joint",
-                "hip_pitch_l_joint",
-                "hip_yaw_l_joint",
-                "knee_pitch_l_joint",
-                "ankle_pitch_l_joint",
-                "ankle_roll_l_joint",
+                "leg_l1_joint",
+                "leg_l2_joint",
+                "leg_l3_joint",
+                "leg_l4_joint",
+                "leg_l5_joint",
+                "leg_l6_joint",
             ],
             preserve_order=True,
         )
         self.right_leg_ids, _ = self.robot.find_joints(
             name_keys=[
-                "hip_roll_r_joint",
-                "hip_pitch_r_joint",
-                "hip_yaw_r_joint",
-                "knee_pitch_r_joint",
-                "ankle_pitch_r_joint",
-                "ankle_roll_r_joint",
+                "leg_r1_joint",
+                "leg_r2_joint",
+                "leg_r3_joint",
+                "leg_r4_joint",
+                "leg_r5_joint",
+                "leg_r6_joint",
             ],
             preserve_order=True,
         )
         self.left_arm_ids, _ = self.robot.find_joints(
             name_keys=[
-                "shoulder_pitch_l_joint",
-                "shoulder_roll_l_joint",
-                "shoulder_yaw_l_joint",
-                "elbow_pitch_l_joint",
+                "zarm_l1_joint",
+                "zarm_l2_joint",
+                "zarm_l3_joint",
+                "zarm_l4_joint",
+                "zarm_l5_joint",
+                "zarm_l6_joint",
+                "zarm_l7_joint",
             ],
             preserve_order=True,
         )
         self.right_arm_ids, _ = self.robot.find_joints(
             name_keys=[
-                "shoulder_pitch_r_joint",
-                "shoulder_roll_r_joint",
-                "shoulder_yaw_r_joint",
-                "elbow_pitch_r_joint",
+                "zarm_r1_joint",
+                "zarm_r2_joint",
+                "zarm_r3_joint",
+                "zarm_r4_joint",
+                "zarm_r5_joint",
+                "zarm_r6_joint",
+                "zarm_r7_joint",
             ],
             preserve_order=True,
         )
-        self.ankle_joint_ids, _ = self.robot.find_joints(
-            name_keys=["ankle_pitch_l_joint", "ankle_pitch_r_joint", "ankle_roll_l_joint", "ankle_roll_r_joint"],
+        self.waist_ids, _ = self.robot.find_joints(
+            name_keys=["waist_yaw_joint"],
             preserve_order=True,
         )
+        self.ankle_joint_ids, _ = self.robot.find_joints(
+            name_keys=["leg_l5_joint", "leg_l6_joint", "leg_r5_joint", "leg_r6_joint"],
+            preserve_order=True,
+        )
+        
+        # DEBUG: Print joint mapping information
+        print(f"\n{'='*80}")
+        print(f"[DEBUG] Joint Mapping Verification for Kuavo5")
+        print(f"{'='*80}")
+        print(f"Total joints: {self.robot.num_joints}")
+        print(f"All joint names: {self.robot.joint_names}")
+        print(f"\nJoint group indices:")
+        print(f"  left_leg_ids ({len(self.left_leg_ids)}): {self.left_leg_ids}")
+        print(f"  right_leg_ids ({len(self.right_leg_ids)}): {self.right_leg_ids}")
+        print(f"  waist_ids ({len(self.waist_ids)}): {self.waist_ids}")
+        print(f"  left_arm_ids ({len(self.left_arm_ids)}): {self.left_arm_ids}")
+        print(f"  right_arm_ids ({len(self.right_arm_ids)}): {self.right_arm_ids}")
+        print(f"\nExpected AMP data order (27 joints):")
+        print(f"  [0-5]: Left leg (6 joints)")
+        print(f"  [6-11]: Right leg (6 joints)")
+        print(f"  [12]: Waist (1 joint)")
+        print(f"  [13-19]: Left arm (7 joints)")
+        print(f"  [20-26]: Right arm (7 joints)")
+        print(f"{'='*80}\n")
 
         self.obs_scales = self.cfg.normalization.obs_scales
         self.add_noise = self.cfg.noise.add_noise
@@ -265,15 +303,65 @@ class TienKungEnv(VecEnv):
         dof_pos = torch.zeros((self.num_envs, self.robot.num_joints), device=device)
         dof_vel = torch.zeros((self.num_envs, self.robot.num_joints), device=device)
 
+        # Kuavo5 has 27 joints: 6 left leg + 6 right leg + 1 waist + 7 left arm + 7 right arm
+        # NPZ data order: [leg_l1-6, leg_r1-6, waist_yaw, zarm_l1-7, zarm_r1-7]
+        # AMP format: [root_pos(3), root_rot(3), dof_pos(27), root_lin_vel(3), root_ang_vel(3), dof_vel(27)]
+        # Index breakdown in AMP frame:
+        #   [0:3]   - root_pos
+        #   [3:6]   - root_rot (euler)
+        #   [6:12]  - left_leg_pos (6 joints: leg_l1-6)
+        #   [12:18] - right_leg_pos (6 joints: leg_r1-6)
+        #   [18:19] - waist_pos (1 joint: waist_yaw)
+        #   [19:26] - left_arm_pos (7 joints: zarm_l1-7)
+        #   [26:33] - right_arm_pos (7 joints: zarm_r1-7)
+        #   [33:36] - root_lin_vel
+        #   [36:39] - root_ang_vel
+        #   [39:45] - left_leg_vel (6 joints)
+        #   [45:51] - right_leg_vel (6 joints)
+        #   [51:52] - waist_vel (1 joint)
+        #   [52:59] - left_arm_vel (7 joints)
+        #   [59:66] - right_arm_vel (7 joints)
+        
+        # Debug: print AMPLoader constants
+        from rsl_rl.utils.motion_loader import AMPLoader
+        # print(f"[DEBUG] AMPLoader.JOINT_POS_SIZE: {AMPLoader.JOINT_POS_SIZE}")
+        # print(f"[DEBUG] AMPLoader.JOINT_VEL_END_IDX: {AMPLoader.JOINT_VEL_END_IDX}")
+        # print(f"[DEBUG] AMPLoader.END_POS_END_IDX: {AMPLoader.END_POS_END_IDX}")
+        # print(f"[DEBUG] visual_motion_frame length: {len(visual_motion_frame)}")
+        
+        # DEBUG: Print joint position mapping for first frame
+        if self.sim_step_counter < 10:  # Only print first few frames
+            print(f"\n[DEBUG t={time:.3f}] AMP frame joint positions:")
+            print(f"  Left leg (indices 6-12):   {visual_motion_frame[6:12].cpu().numpy()}")
+            print(f"  Right leg (indices 12-18): {visual_motion_frame[12:18].cpu().numpy()}")
+            print(f"  Waist (index 18-19):       {visual_motion_frame[18:19].cpu().numpy()}")
+            print(f"  Left arm (indices 19-26):  {visual_motion_frame[19:26].cpu().numpy()}")
+            print(f"  Right arm (indices 26-33): {visual_motion_frame[26:33].cpu().numpy()}")
+            
+            # Map to Isaac Lab joint indices and print
+            test_dof_pos = torch.zeros((self.num_envs, self.robot.num_joints), device=device)
+            test_dof_pos[:, self.left_leg_ids] = visual_motion_frame[6:12]
+            test_dof_pos[:, self.right_leg_ids] = visual_motion_frame[12:18]
+            test_dof_pos[:, self.waist_ids] = visual_motion_frame[18:19]
+            test_dof_pos[:, self.left_arm_ids] = visual_motion_frame[19:26]
+            test_dof_pos[:, self.right_arm_ids] = visual_motion_frame[26:33]
+            
+            print(f"\n[DEBUG t={time:.3f}] Mapped to Isaac Lab joints:")
+            for i, joint_name in enumerate(self.robot.joint_names):
+                print(f"  [{i:2d}] {joint_name:25s}: {test_dof_pos[0, i]:7.4f}")
+            print()
+        
         dof_pos[:, self.left_leg_ids] = visual_motion_frame[6:12]
         dof_pos[:, self.right_leg_ids] = visual_motion_frame[12:18]
-        dof_pos[:, self.left_arm_ids] = visual_motion_frame[18:22]
-        dof_pos[:, self.right_arm_ids] = visual_motion_frame[22:26]
+        dof_pos[:, self.waist_ids] = visual_motion_frame[18:19]
+        dof_pos[:, self.left_arm_ids] = visual_motion_frame[19:26]
+        dof_pos[:, self.right_arm_ids] = visual_motion_frame[26:33]
 
-        dof_vel[:, self.left_leg_ids] = visual_motion_frame[32:38]
-        dof_vel[:, self.right_leg_ids] = visual_motion_frame[38:44]
-        dof_vel[:, self.left_arm_ids] = visual_motion_frame[44:48]
-        dof_vel[:, self.right_arm_ids] = visual_motion_frame[48:52]
+        dof_vel[:, self.left_leg_ids] = visual_motion_frame[39:45]
+        dof_vel[:, self.right_leg_ids] = visual_motion_frame[45:51]
+        dof_vel[:, self.waist_ids] = visual_motion_frame[51:52]
+        dof_vel[:, self.left_arm_ids] = visual_motion_frame[52:59]
+        dof_vel[:, self.right_arm_ids] = visual_motion_frame[59:66]
 
         self.robot.write_joint_position_to_sim(dof_pos)
         self.robot.write_joint_velocity_to_sim(dof_vel)
@@ -281,15 +369,18 @@ class TienKungEnv(VecEnv):
         env_ids = torch.arange(self.num_envs, device=device)
 
         root_pos = visual_motion_frame[:3].clone()
-        root_pos[2] += 0.3
+        root_pos[2] += 0.5
 
+        # The euler angles were converted from quaternion using 'XYZ' order in convert_kuavo5_npz.py
+        # So we should use 'XYZ' order to convert back
         euler = visual_motion_frame[3:6].cpu().numpy()
         quat_xyzw = Rotation.from_euler("XYZ", euler, degrees=False).as_quat()  # [x, y, z, w]
+        
         quat_wxyz = torch.tensor(
             [quat_xyzw[3], quat_xyzw[0], quat_xyzw[1], quat_xyzw[2]], dtype=torch.float32, device=device
         )
 
-        lin_vel = visual_motion_frame[26:29].clone()
+        lin_vel = visual_motion_frame[32:35].clone()
         ang_vel = torch.zeros_like(lin_vel)
 
         # root state: [x, y, z, qw, qx, qy, qz, vx, vy, vz, wx, wy, wz]
@@ -324,11 +415,23 @@ class TienKungEnv(VecEnv):
         )
         left_foot_pos = quat_apply(quat_conjugate(self.robot.data.root_state_w[:, 3:7]), left_foot_pos)
         right_foot_pos = quat_apply(quat_conjugate(self.robot.data.root_state_w[:, 3:7]), right_foot_pos)
+        
+        # Print end-effector positions for debugging
+        # print(f"[EE Pos] Time: {time:.3f}s | "
+        #       f"L_Hand: [{left_hand_pos[0, 0]:.3f}, {left_hand_pos[0, 1]:.3f}, {left_hand_pos[0, 2]:.3f}] | "
+        #       f"R_Hand: [{right_hand_pos[0, 0]:.3f}, {right_hand_pos[0, 1]:.3f}, {right_hand_pos[0, 2]:.3f}] | "
+        #       f"L_Foot: [{left_foot_pos[0, 0]:.3f}, {left_foot_pos[0, 1]:.3f}, {left_foot_pos[0, 2]:.3f}] | "
+        #       f"R_Foot: [{right_foot_pos[0, 0]:.3f}, {right_foot_pos[0, 1]:.3f}, {right_foot_pos[0, 2]:.3f}]")
+        
+        # Update 3D visualization markers for end-effectors
+        self._update_ee_visualization(left_hand_pos, right_hand_pos, left_foot_pos, right_foot_pos, root_pos)
 
         self.left_leg_dof_pos =  dof_pos[:, self.left_leg_ids] 
         self.right_leg_dof_pos = dof_pos[:, self.right_leg_ids]
+        self.waist_dof_pos = dof_pos[:, self.waist_ids]  # Add waist joint
         self.left_leg_dof_vel =  dof_vel[:, self.left_leg_ids] 
         self.right_leg_dof_vel = dof_vel[:, self.right_leg_ids]
+        self.waist_dof_vel = dof_vel[:, self.waist_ids]  # Add waist joint
         self.left_arm_dof_pos =  dof_pos[:, self.left_arm_ids] 
         self.right_arm_dof_pos = dof_pos[:, self.right_arm_ids]
         self.left_arm_dof_vel =  dof_vel[:, self.left_arm_ids] 
@@ -339,14 +442,16 @@ class TienKungEnv(VecEnv):
                 self.left_arm_dof_pos,
                 self.right_leg_dof_pos,
                 self.left_leg_dof_pos,
+                self.waist_dof_pos,          # Add waist joint
                 self.right_arm_dof_vel,
                 self.left_arm_dof_vel,
                 self.right_leg_dof_vel,
                 self.left_leg_dof_vel,
+                self.waist_dof_vel,          # Add waist joint
                 left_hand_pos,
                 right_hand_pos,
                 left_foot_pos,
-                right_foot_pos
+                right_foot_pos,
             ),
             dim=-1,
         )
@@ -369,9 +474,9 @@ class TienKungEnv(VecEnv):
                 ang_vel * self.obs_scales.ang_vel,  # 3
                 projected_gravity * self.obs_scales.projected_gravity,  # 3
                 command * self.obs_scales.commands,  # 3
-                joint_pos * self.obs_scales.joint_pos,  # 20
-                joint_vel * self.obs_scales.joint_vel,  # 20
-                action * self.obs_scales.actions,  # 20
+                joint_pos * self.obs_scales.joint_pos,  # 27 (kuavo5 joints: 6L leg + 6R leg + 1 waist + 7L arm + 7R arm)
+                joint_vel * self.obs_scales.joint_vel,  # 27
+                action * self.obs_scales.actions,  # 27
                 torch.sin(2 * torch.pi * self.gait_phase),  # 2
                 torch.cos(2 * torch.pi * self.gait_phase),  # 2
                 self.phase_ratio,  # 2
@@ -459,6 +564,18 @@ class TienKungEnv(VecEnv):
         self.action = torch.clip(delayed_actions, -self.clip_actions, self.clip_actions).to(self.device)
 
         processed_actions = self.action * self.action_scale + self.robot.data.default_joint_pos
+                
+        # DEBUG: Print action and joint position target for first few steps
+        if self.sim_step_counter < 20:
+            print(f"\n[DEBUG Step] Action stats: min={self.action.min():.3f}, max={self.action.max():.3f}, mean={self.action.mean():.3f}")
+            print(f"[DEBUG Step] Action by group:")
+            print(f"  Left leg (ids {self.left_leg_ids}): {self.action[0, self.left_leg_ids].cpu().numpy()}")
+            print(f"  Right leg (ids {self.right_leg_ids}): {self.action[0, self.right_leg_ids].cpu().numpy()}")
+            print(f"  Waist (ids {self.waist_ids}): {self.action[0, self.waist_ids].cpu().numpy()}")
+            print(f"  Left arm (ids {self.left_arm_ids}): {self.action[0, self.left_arm_ids].cpu().numpy()}")
+            print(f"  Right arm (ids {self.right_arm_ids}): {self.action[0, self.right_arm_ids].cpu().numpy()}")
+            print(f"[DEBUG Step] Processed action stats: min={processed_actions.min():.3f}, max={processed_actions.max():.3f}, mean={processed_actions.mean():.3f}")
+            print(f"[DEBUG Step] Default joint pos: {self.robot.data.default_joint_pos[0].cpu().numpy()}")
 
         self.avg_feet_force_per_step = torch.zeros(
             self.num_envs, len(self.feet_cfg.body_ids), dtype=torch.float, device=self.device, requires_grad=False
@@ -493,6 +610,18 @@ class TienKungEnv(VecEnv):
 
         self.reset_buf, self.time_out_buf = self.check_reset()
         reward_buf = self.reward_manager.compute(self.step_dt)
+        
+        # DEBUG: Print torque and reward for first few steps
+        if self.sim_step_counter < 20:
+            print(f"[DEBUG Reward] Applied torque stats: min={self.robot.data.applied_torque.min():.3f}, max={self.robot.data.applied_torque.max():.3f}, mean={torch.abs(self.robot.data.applied_torque).mean():.3f}")
+            print(f"[DEBUG Reward] Torque by group:")
+            print(f"  Left leg (ids {self.left_leg_ids}): {self.robot.data.applied_torque[0, self.left_leg_ids].cpu().numpy()}")
+            print(f"  Right leg (ids {self.right_leg_ids}): {self.robot.data.applied_torque[0, self.right_leg_ids].cpu().numpy()}")
+            print(f"  Waist (ids {self.waist_ids}): {self.robot.data.applied_torque[0, self.waist_ids].cpu().numpy()}")
+            print(f"  Left arm (ids {self.left_arm_ids}): {self.robot.data.applied_torque[0, self.left_arm_ids].cpu().numpy()}")
+            print(f"  Right arm (ids {self.right_arm_ids}): {self.robot.data.applied_torque[0, self.right_arm_ids].cpu().numpy()}")
+            print(f"[DEBUG Reward] Reward buf: {reward_buf[0].cpu().numpy()}")
+        
         self.reset_env_ids = self.reset_buf.nonzero(as_tuple=False).flatten()
         self.reset(self.reset_env_ids)
 
@@ -528,12 +657,12 @@ class TienKungEnv(VecEnv):
             noise_vec[3:6] = noise_scales.ang_vel * self.obs_scales.ang_vel
             noise_vec[6:9] = noise_scales.projected_gravity * self.obs_scales.projected_gravity
             noise_vec[9:12] = 0
-            noise_vec[12 : 12 + self.num_actions] = noise_scales.joint_pos * self.obs_scales.joint_pos
+            noise_vec[12 : 12 + self.num_actions] = noise_scales.joint_pos * self.obs_scales.joint_pos  # 27 joints
             noise_vec[12 + self.num_actions : 12 + self.num_actions * 2] = (
                 noise_scales.joint_vel * self.obs_scales.joint_vel
             )
             noise_vec[12 + self.num_actions * 2 : 12 + self.num_actions * 3] = 0.0
-            noise_vec[12 + self.num_actions * 3 : 18 + self.num_actions * 3] = 0.0
+            noise_vec[12 + self.num_actions * 3 : 18 + self.num_actions * 3] = 0.0  # gait phase and ratio
             self.noise_scale_vec = noise_vec
 
             if self.cfg.scene.height_scanner.enable_height_scan:
@@ -571,7 +700,7 @@ class TienKungEnv(VecEnv):
         return actor_obs, self.extras
 
     def get_amp_obs_for_expert_trans(self):
-        """Gets amp obs from policy"""
+        """Gets amp obs from policy for Kuavo5 robot"""
         left_hand_pos = (
             self.robot.data.body_state_w[:, self.elbow_body_ids[0], :3]
             - self.robot.data.root_state_w[:, 0:3]
@@ -592,31 +721,39 @@ class TienKungEnv(VecEnv):
         )
         left_foot_pos = quat_apply(quat_conjugate(self.robot.data.root_state_w[:, 3:7]), left_foot_pos)
         right_foot_pos = quat_apply(quat_conjugate(self.robot.data.root_state_w[:, 3:7]), right_foot_pos)
+        
+        # Extract joint positions and velocities for Kuavo5 (27 joints total, including waist)
         self.left_leg_dof_pos = self.robot.data.joint_pos[:, self.left_leg_ids]
         self.right_leg_dof_pos = self.robot.data.joint_pos[:, self.right_leg_ids]
+        self.waist_dof_pos = self.robot.data.joint_pos[:, self.waist_ids]  # Add waist joint
         self.left_leg_dof_vel = self.robot.data.joint_vel[:, self.left_leg_ids]
         self.right_leg_dof_vel = self.robot.data.joint_vel[:, self.right_leg_ids]
+        self.waist_dof_vel = self.robot.data.joint_vel[:, self.waist_ids]  # Add waist joint
         self.left_arm_dof_pos = self.robot.data.joint_pos[:, self.left_arm_ids]
         self.right_arm_dof_pos = self.robot.data.joint_pos[:, self.right_arm_ids]
         self.left_arm_dof_vel = self.robot.data.joint_vel[:, self.left_arm_ids]
         self.right_arm_dof_vel = self.robot.data.joint_vel[:, self.right_arm_ids]
+        
+        # Return AMP observation vector with all 27 joints + end-effectors
         return torch.cat(
             (
-                self.right_arm_dof_pos,
-                self.left_arm_dof_pos,
-                self.right_leg_dof_pos,
-                self.left_leg_dof_pos,
-                self.right_arm_dof_vel,
-                self.left_arm_dof_vel,
-                self.right_leg_dof_vel,
-                self.left_leg_dof_vel,
-                left_hand_pos,
-                right_hand_pos,
-                left_foot_pos,
-                right_foot_pos,
+                self.right_arm_dof_pos,      # 7
+                self.left_arm_dof_pos,       # 7
+                self.right_leg_dof_pos,      # 6
+                self.left_leg_dof_pos,       # 6
+                self.waist_dof_pos,          # 1 (waist joint)
+                self.right_arm_dof_vel,      # 7
+                self.left_arm_dof_vel,       # 7
+                self.right_leg_dof_vel,      # 6
+                self.left_leg_dof_vel,       # 6
+                self.waist_dof_vel,          # 1 (waist joint)
+                left_hand_pos,               # 3
+                right_hand_pos,              # 3
+                left_foot_pos,               # 3
+                right_foot_pos,              # 3
             ),
             dim=-1,
-        )
+        )  # Total: 66 dimensions (27 joint pos + 27 joint vel + 12 end-effector pos)
 
     @staticmethod
     def seed(seed: int = -1) -> int:
@@ -627,6 +764,35 @@ class TienKungEnv(VecEnv):
         except ModuleNotFoundError:
             pass
         return torch_utils.set_seed(seed)
+
+    def _update_ee_visualization(self, left_hand_pos, right_hand_pos, left_foot_pos, right_foot_pos, root_pos):
+        """
+        Update 3D visualization markers for end-effector positions.
+        
+        Args:
+            left_hand_pos: Left hand position in root frame [num_envs, 3]
+            right_hand_pos: Right hand position in root frame [num_envs, 3]
+            left_foot_pos: Left foot position in root frame [num_envs, 3]
+            right_foot_pos: Right foot position in root frame [num_envs, 3]
+            root_pos: Root position in world frame [num_envs, 3]
+        """
+        # Transform end-effector positions from root frame to world frame
+        left_hand_world = quat_apply(self.robot.data.root_state_w[:, 3:7], left_hand_pos) + root_pos
+        right_hand_world = quat_apply(self.robot.data.root_state_w[:, 3:7], right_hand_pos) + root_pos
+        left_foot_world = quat_apply(self.robot.data.root_state_w[:, 3:7], left_foot_pos) + root_pos
+        right_foot_world = quat_apply(self.robot.data.root_state_w[:, 3:7], right_foot_pos) + root_pos
+        
+        # Stack all end-effector positions [num_envs * 4, 3]
+        ee_positions = torch.cat([
+            left_hand_world,   # [num_envs, 3]
+            right_hand_world,  # [num_envs, 3]
+            left_foot_world,   # [num_envs, 3]
+            right_foot_world,  # [num_envs, 3]
+        ], dim=0)
+        
+        # Update visualization markers
+        if hasattr(self, "ee_visualizer"):
+            self.ee_visualizer.visualize(translations=ee_positions)
 
     def _calculate_gait_para(self) -> None:
         """

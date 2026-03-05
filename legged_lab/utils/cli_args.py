@@ -49,6 +49,7 @@ def add_rsl_rl_args(parser: argparse.ArgumentParser):
     arg_group.add_argument(
         "--distributed", action="store_true", default=False, help="Run training with multiple GPUs or nodes."
     )
+    arg_group.add_argument("--rl-device", type=str, default=None, dest="rl_device", help="Device to use for RL training (e.g., cuda:0, cuda:1, cpu). Defaults to env_cfg.device.")
 
 
 def update_rsl_rl_cfg(agent_cfg: BaseAgentConfig, args_cli: argparse.Namespace):
@@ -72,6 +73,8 @@ def update_rsl_rl_cfg(agent_cfg: BaseAgentConfig, args_cli: argparse.Namespace):
         agent_cfg.run_name = args_cli.run_name
     if args_cli.logger is not None:
         agent_cfg.logger = args_cli.logger
+    if args_cli.rl_device is not None:
+        agent_cfg.device = args_cli.rl_device
     # set the project name for wandb and neptune
     if agent_cfg.logger in {"wandb", "neptune"} and args_cli.log_project_name:
         agent_cfg.wandb_project = args_cli.log_project_name

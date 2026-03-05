@@ -2,7 +2,8 @@
 *.pyc
 .vscode
 outputs
-logs
+logs/*
+!logs/resume/
 run_bash.sh
 wandb
 MUJOCO_LOG.TXT

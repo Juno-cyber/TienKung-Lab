@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 
-project(biped_s54)
+project(biped_s52)
 
 find_package(catkin REQUIRED)
 

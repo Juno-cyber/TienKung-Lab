@@ -321,11 +321,11 @@ class TienKungRunAgentCfg(RslRlOnPolicyRunnerCfg):
     clip_actions = None
     save_interval = 100
     runner_class_name = "AmpOnPolicyRunner"
-    experiment_name = "run"
+    experiment_name = "kuavo5_walk"
     run_name = ""
     logger = "tensorboard"
-    neptune_project = "run"
-    wandb_project = "run"
+    neptune_project = "kuavo5_walk"
+    wandb_project = "kuavo5_walk"
     resume = False
     load_run = ".*"
     load_checkpoint = "model_.*.pt"
